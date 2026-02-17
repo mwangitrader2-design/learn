@@ -1,208 +1,108 @@
-'use client'
-
-import { useState, useRef, useEffect } from 'react'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-}
-
-export default function Home() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!input.trim()) {
-      setError('Please enter a message')
-      return
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Link, Navigate } from "react-router-dom";
+import { Brain, Mail, Lock, User, Loader2, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+export default function AuthPage() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { user, signIn, signUp } = useAuth();
+  const { toast } = useToast();
+  if (user) return <Navigate to="/lesson" replace />;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = isLogin
+      ? await signIn(email, password)
+      : await signUp(email, password, displayName);
+    setLoading(false);
+    if (error) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } else if (!isLogin) {
+      toast({ title: "Check your email", description: "We sent you a confirmation link to verify your account." });
     }
-
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: input,
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Format history for API
-      const history = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          message: input,
-          history 
-        })
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to get response')
-      }
-
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: data.response,
-        timestamp: new Date()
-      }
-
-      setMessages(prev => [...prev, assistantMessage])
-    } catch (error: any) {
-      console.error('Chat error:', error)
-      setError(error.message || 'Failed to send message. Please try again.')
-      
-      // Remove the user message if API failed
-      setMessages(prev => prev.slice(0, -1))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const clearChat = () => {
-    setMessages([])
-    setError(null)
-  }
-
+  };
   return (
-    <main className="flex min-h-screen flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">AI Learning Assistant</h1>
-              <p className="text-blue-100 mt-2">Ask me anything - I'm here to help you learn</p>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md"
+      >
+        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Back to home
+        </Link>
+        <div className="bg-card border border-border rounded-2xl p-8 shadow-card">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">
+              <Brain className="w-5 h-5 text-primary-foreground" />
             </div>
-            {messages.length > 0 && (
-              <button
-                onClick={clearChat}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition"
-              >
-                Clear Chat
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Chat Container */}
-      <div className="flex-1 max-w-4xl w-full mx-auto p-4">
-        <div className="bg-white rounded-lg shadow-lg h-[600px] flex flex-col">
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <p className="text-lg">Start a conversation</p>
-                  <p className="text-sm mt-2">Ask me about any topic you want to learn</p>
-                  <div className="mt-4 space-y-2 text-sm">
-                    <p className="text-blue-500">💡 Try asking:</p>
-                    <p>"Explain quantum physics simply"</p>
-                    <p>"Help me understand calculus"</p>
-                    <p>"What's the best way to learn Spanish?"</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-4 ${
-                      msg.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    <p className={`text-xs mt-2 ${
-                      msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'
-                    }`}>
-                      {msg.timestamp.toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <div className="flex space-x-2">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Error Display */}
-          {error && (
-            <div className="px-4 py-2 bg-red-50 border-t border-red-200">
-              <p className="text-sm text-red-600 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {error}
+            <div>
+              <h1 className="font-display font-bold text-xl text-foreground">
+                {isLogin ? "Welcome back" : "Create account"}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {isLogin ? "Sign in to continue learning" : "Start your learning journey"}
               </p>
             </div>
-          )}
-
-          {/* Input Form */}
-          <form onSubmit={sendMessage} className="border-t p-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your question here..."
-                className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div className="relative">
+                <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Display name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            )}
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="pl-10"
               />
-              <button
-                type="submit"
-                disabled={loading || !input.trim()}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition"
-              >
-                {loading ? 'Sending...' : 'Send'}
-              </button>
             </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="pl-10"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-hero text-primary-foreground hover:opacity-90"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isLogin ? "Sign In" : "Sign Up"}
+            </Button>
           </form>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+            <button onClick={() => setIsLogin(!isLogin)} className="text-primary hover:underline font-medium">
+              {isLogin ? "Sign up" : "Sign in"}
+            </button>
+          </p>
         </div>
-      </div>
-    </main>
-  )
+      </motion.div>
+    </div>
+  );
 }
